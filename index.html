@@ -52,7 +52,7 @@
     <input type="number" id="lvl" placeholder="Lvl" min="0" step="1" required />
     <input type="text" id="local" placeholder="Local do KS" required />
     <input type="date" id="data" required />
-    <input type="url" id="print" placeholder="Link do print (URL da imagem)" required />
+    <input type="url" id="print" placeholder="Link do print (opcional)" />
     <button type="submit">Salvar</button>
   </form>
 
@@ -83,7 +83,6 @@
 
     let registros = [];
 
-    // Funções utilitárias
     function escapeCsv(value) {
       const v = String(value ?? '');
       if (/[\",\\n]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
@@ -101,7 +100,7 @@
             <td>${r.lvl}</td>
             <td>${r.local}</td>
             <td>${r.data}</td>
-            <td><a href="${r.print}" target="_blank"><img src="${r.print}" alt="Print"></a></td>
+            <td>${r.print ? `<a href="${r.print}" target="_blank"><img src="${r.print}" alt="Print"></a>` : ''}</td>
             <td>
               <button class="editBtn" data-id="${r.id}">Editar</button>
               <button class="deleteBtn" data-id="${r.id}">Excluir</button>
@@ -146,7 +145,7 @@
       document.getElementById('lvl').value = reg.lvl;
       document.getElementById('local').value = reg.local;
       document.getElementById('data').value = reg.data;
-      document.getElementById('print').value = reg.print;
+      document.getElementById('print').value = reg.print || '';
       editIdInput.value = id;
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -164,7 +163,7 @@
         lvl: document.getElementById('lvl').value.trim(),
         local: document.getElementById('local').value.trim(),
         data: document.getElementById('data').value,
-        print: document.getElementById('print').value.trim()
+        print: document.getElementById('print').value.trim() || ''  // opcional
       };
       salvarRegistroFirebase(registro);
       form.reset();
