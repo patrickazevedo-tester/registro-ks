@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Registro de KS - Firebase</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f9; padding: 20px; }
+    h1 { color: #333; }
+    form { background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    input, button { margin: 5px 0; padding: 8px; width: 100%; border-radius: 5px; border: 1px solid #ccc; }
+    button { background: #007bff; color: #fff; border: none; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+    th { background: #007bff; color: #fff; cursor: default; }
+    img { max-width: 100px; }
+    #exportBtn { margin-top: 15px; background: #28a745; }
+    #exportBtn:hover { background: #1e7e34; }
+    .deleteBtn { background: #dc3545; color: #fff; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+    .deleteBtn:hover { background: #a71d2a; }
+    .editBtn { background: #ffc107; color: #000; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+    .editBtn:hover { background: #e0a800; }
+    #filtro { margin-bottom: 20px; padding: 10px; width: 100%; border-radius: 5px; border: 1px solid #ccc; }
+  </style>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Configuração do seu projeto Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyC3iOE2gSBTNWXrQ9g52JyS94V9U0Yvenw",
+      authDomain: "registro-de-ks.firebaseapp.com",
+      projectId: "registro-de-ks",
+      storageBucket: "registro-de-ks.firebasestorage.app",
+      messagingSenderId: "809970593017",
+      appId: "1:809970593017:web:62f20d862f5dd32f774628",
+      measurementId: "G-C1FKHJ6ZLT"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
+</head>
+<body>
+  <h1>Registro de KS - Firebase</h1>
+
+  <form id="ksForm">
+    <input type="hidden" id="editId" />
+    <input type="text" id="nick" placeholder="Nick" required />
+    <input type="number" id="lvl" placeholder="Lvl" min="0" step="1" required />
+    <input type="text" id="local" placeholder="Local do KS" required />
+    <input type="date" id="data" required />
+    <input type="url" id="print" placeholder="Link do print (URL da imagem)" required />
+    <button type="submit">Salvar</button>
+  </form>
+
+  <input type="text" id="filtro" placeholder="🔍 Filtrar por Nick, Local ou Data..." />
+
+  <table id="ksTable">
+    <thead>
+      <tr>
+        <th>Nick</th>
+        <th>Lvl</th>
+        <th>Local</th>
+        <th>Data</th>
+        <th>Print</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button id="exportBtn">📥 Exportar para CSV</button>
+
+  <script>
+    const form = document.getElementById("ksForm");
+    const tableBody = document.querySelector("#ksTable tbody");
+    const filtroInput = document.getElementById("filtro");
+    const exportBtn = document.getElementById("exportBtn");
+    const editIdInput = document.getElementById("editId");
+
+    let registros = [];
+
+    // Funções utilitárias
+    function escapeCsv(value) {
+      const v = String(value ?? '');
+      if (/[\",\\n]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+      return v;
+    }
+
+    function atualizarTabela(filtro='') {
+      const f = filtro.toLowerCase();
+      tableBody.innerHTML = '';
+      registros.filter(r => r.nick.toLowerCase().includes(f) || r.local.toLowerCase().includes(f) || r.data.includes(f))
+        .forEach(r => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${r.nick}</td>
+            <td>${r.lvl}</td>
+            <td>${r.local}</td>
+            <td>${r.data}</td>
+            <td><a href="${r.print}" target="_blank"><img src="${r.print}" alt="Print"></a></td>
+            <td>
+              <button class="editBtn" data-id="${r.id}">Editar</button>
+              <button class="deleteBtn" data-id="${r.id}">Excluir</button>
+            </td>
+          `;
+          tableBody.appendChild(row);
+        });
+
+      tableBody.querySelectorAll('.editBtn').forEach(btn => {
+        btn.addEventListener('click', () => editarRegistro(btn.getAttribute('data-id')));
+      });
+      tableBody.querySelectorAll('.deleteBtn').forEach(btn => {
+        btn.addEventListener('click', () => excluirRegistro(btn.getAttribute('data-id')));
+      });
+    }
+
+    function carregarRegistros() {
+      db.collection('registrosKS').onSnapshot(snapshot => {
+        registros = [];
+        snapshot.forEach(doc => {
+          let data = doc.data();
+          data.id = doc.id;
+          registros.push(data);
+        });
+        atualizarTabela(filtroInput.value);
+      });
+    }
+
+    function salvarRegistroFirebase(registro) {
+      const editId = editIdInput.value;
+      if (editId) {
+        db.collection('registrosKS').doc(editId).update(registro);
+        editIdInput.value = '';
+      } else {
+        db.collection('registrosKS').add(registro);
+      }
+    }
+
+    function editarRegistro(id) {
+      const reg = registros.find(r => r.id === id);
+      document.getElementById('nick').value = reg.nick;
+      document.getElementById('lvl').value = reg.lvl;
+      document.getElementById('local').value = reg.local;
+      document.getElementById('data').value = reg.data;
+      document.getElementById('print').value = reg.print;
+      editIdInput.value = id;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function excluirRegistro(id) {
+      if(confirm("Tem certeza que deseja excluir este registro?")) {
+        db.collection('registrosKS').doc(id).delete();
+      }
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const registro = {
+        nick: document.getElementById('nick').value.trim(),
+        lvl: document.getElementById('lvl').value.trim(),
+        local: document.getElementById('local').value.trim(),
+        data: document.getElementById('data').value,
+        print: document.getElementById('print').value.trim()
+      };
+      salvarRegistroFirebase(registro);
+      form.reset();
+    });
+
+    filtroInput.addEventListener('input', () => atualizarTabela(filtroInput.value));
+
+    exportBtn.addEventListener('click', () => {
+      if (registros.length === 0) { alert("Nenhum registro para exportar!"); return; }
+      let csv = "Nick,Lvl,Local,Data,Print\n";
+      registros.forEach(r => csv += [r.nick, r.lvl, r.local, r.data, r.print].map(escapeCsv).join(',') + "\n");
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'registros_ks.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+
+    // Inicializar
+    carregarRegistros();
+  </script>
+</body>
+</html>
